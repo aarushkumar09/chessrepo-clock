@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZextaOS Authoritative Chess Clock - Chessground Sandbox</title>
+
+  <!-- Chessground Production Stylesheets (Embedded Base64 SVGs) -->
+  <link rel="stylesheet" href="/chessground/chessground.base.css" />
+  <link rel="stylesheet" href="/chessground/chessground.brown.css" />
+  <link rel="stylesheet" href="/chessground/chessground.cburnett.css" />
+
+  <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --card-bg: #121722;
+      --card-border: #1f293d;
+      --accent-cyan: #00f0ff;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: rgba(18, 23, 34, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #050811;
+      font-size: 18px;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      background: rgba(0, 240, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    button {
+      background: #1e2638;
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:hover {
+      background: #28334b;
+      border-color: #384666;
+    }
+    button.primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #fff;
+    }
+    button.primary:hover {
+      background: #2563eb;
+    }
+    button.danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    button.danger:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .container {
+      flex: 1;
+      padding: 20px 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Config Bar */
+    .config-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+    }
+    .config-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .config-group label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    input, select {
+      background: #0a0d14;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+    }
+
+    /* Main Grid */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 420px;
+      gap: 20px;
+      flex: 1;
+    }
+    @media (max-width: 1300px) {
+      .workspace-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .telemetry-card {
+        grid-column: 1 / -1;
+      }
+    }
+    @media (max-width: 860px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Player Harness Card */
+    .player-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+    .player-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .player-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+    }
+    .color-dot.white { background: #f8fafc; }
+    .color-dot.black { background: #0f172a; border-color: #64748b; }
+    .player-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    /* Clock Display Box */
+    .clock-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .clock-box {
+      background: #080b11;
+      border: 2px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .clock-box.active-turn {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+    }
+    .clock-box.low-time {
+      border-color: var(--accent-red);
+      animation: pulseLowTime 1s infinite alternate;
+    }
+    @keyframes pulseLowTime {
+      0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+      100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.7); }
+    }
+    .clock-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+    .clock-time {
+      font-family: var(--font-mono);
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .clock-drift {
+      font-size: 10px;
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    /* Premove Status Banner */
+    .premove-banner {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .premove-banner.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Chessground Board Wrapper */
+    .board-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 4px 0;
+    }
+    .cg-wrap {
+      width: 360px !important;
+      height: 360px !important;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      position: relative;
+      overflow: hidden;
+      border: 2px solid #2d3748;
+    }
+
+    /* Move Actions */
+    .move-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .quick-moves {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .quick-moves button {
+      padding: 4px 8px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    /* Telemetry Card */
+    .telemetry-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100%;
+      min-height: 560px;
+    }
+    .telemetry-header {
+      padding: 14px 16px;
+      background: #0d121c;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .telemetry-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .telemetry-log {
+      flex: 1;
+      padding: 12px;
+      background: #070a10;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .log-entry {
+      line-height: 1.4;
+      padding: 4px 6px;
+      border-radius: 4px;
+      word-break: break-all;
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 3px solid #334155;
+    }
+    .log-entry.tx { border-color: var(--accent-blue); }
+    .log-entry.rx { border-color: var(--accent-green); }
+    .log-entry.premove { border-color: var(--accent-amber); background: rgba(245, 158, 11, 0.1); }
+    .log-entry.error { border-color: var(--accent-red); background: rgba(239, 68, 68, 0.1); }
+    .log-entry.flag { border-color: var(--accent-red); font-weight: bold; }
+    .log-time { color: var(--text-muted); font-size: 10px; margin-right: 6px; }
+
+    /* Telemetry Stats Bar */
+    .stats-bar {
+      padding: 10px 14px;
+      background: #0d121c;
+      border-top: 1px solid var(--card-border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    .stat-val {
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">Z</div>
+      <div>
+        <div class="brand-title">Chessground Live Test Sandbox</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Authoritative In-Memory Ohio Microservice</div>
+      </div>
+      <span class="brand-badge" id="service-badge">Connecting...</span>
+    </div>
+
+    <div class="header-actions">
+      <button onclick="openTab('w')">↗ Open White Tab</button>
+      <button onclick="openTab('b')">↗ Open Black Tab</button>
+      <button onclick="clearTelemetry()">Clear Log</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Config Bar -->
+    <div class="config-panel">
+      <div class="config-group">
+        <label>Game ID:</label>
+        <input id="cfg-game-id" type="text" value="sandbox-1" style="width: 100px;" />
+      </div>
+
+      <div class="config-group">
+        <label>Time Control:</label>
+        <select id="cfg-preset" onchange="applyPreset()">
+          <option value="60000,0,1+0">1 min (Bullet, 0s inc)</option>
+          <option value="180000,2000,3+2">3 min + 2s (Blitz)</option>
+          <option value="300000,0,5+0" selected>5 min (0s inc)</option>
+          <option value="10000,0,0.16+0">10 sec (Stress Flag)</option>
+        </select>
+      </div>
+
+      <div class="config-group">
+        <label>Base (ms):</label>
+        <input id="cfg-base-ms" type="number" value="300000" style="width: 90px;" />
+      </div>
+
+      <div class="config-group">
+        <label>Inc (ms):</label>
+        <input id="cfg-inc-ms" type="number" value="0" style="width: 70px;" />
+      </div>
+
+      <div class="config-group" style="flex: 1; min-width: 220px;">
+        <label>Starting FEN:</label>
+        <input id="cfg-fen" type="text" value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" style="flex: 1;" />
+      </div>
+
+      <button class="primary" onclick="initGameOnServer()">Initialize / Reset Match</button>
+    </div>
+
+    <!-- Workspace Grid -->
+    <div class="workspace-grid">
+
+      <!-- White Player Harness -->
+      <div class="player-card" id="card-w">
+        <div class="player-header">
+          <div class="player-identity">
+            <div class="color-dot white"></div>
+            <div class="player-title">White (Player 1)</div>
+            <span id="badge-w" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #1e2638;">Offline</span>
+          </div>
+          <button class="danger" style="padding: 3px 8px; font-size: 11px;" onclick="sendResign('w')">Resign</button>
+        </div>
+
+        <div class="clock-container">
+          <div class="clock-box" id="clock-w-white">
+            <span class="clock-label">White Time</span>
+            <span class="clock-time" id="time-w-white">5:00</span>
+            <span class="clock-drift" id="drift-w-white">Drift: 0ms</span>
+          </div>
+          <div class="clock-box" id="clock-w-black">
+            <span class="clock-label">Black Time</span>
+            <span class="clock-time" id="time-w-black">5:00</span>
+            <span class="clock-drift" id="drift-w-black">Drift: 0ms</span>
+          </div>
+        </div>
+
+        <div class="premove-banner" id="premove-banner-w">
+          <span id="premove-text-w">⚡ PREMOVE QUEUED</span>
+          <button style="padding: 2px 6px; font-size: 10px;" onclick="cancelPremove('w')">Cancel</button>
+        </div>
+
+        <div class="board-wrapper">
+          <div class="cg-wrap">
+            <div id="board-w" style="width: 100%; height: 100%;"></div>
+          </div>
+        </div>
+
+        <div class="move-controls">
+          <div class="quick-moves">
+            <button onclick="playQuick('w','e2','e4')">e4</button>
+            <button onclick="playQuick('w','d2','d4')">d4</button>
+            <button onclick="playQuick('w','g1','f3')">Nf3</button>
+            <button onclick="playQuick('w','f1','c4')">Bc4</button>
+            <button onclick="playQuick('w','c2','c4')">c4</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Black Player Harness -->
+      <div class="player-card" id="card-b">
+        <div class="player-header">
+          <div class="player-identity">
+            <div class="color-dot black"></div>
+            <div class="player-title">Black (Player 2)</div>
+            <span id="badge-b" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #1e2638;">Offline</span>
+          </div>
+          <button class="danger" style="padding: 3px 8px; font-size: 11px;" onclick="sendResign('b')">Resign</button>
+        </div>
+
+        <div class="clock-container">
+          <div class="clock-box" id="clock-b-white">
+            <span class="clock-label">White Time</span>
+            <span class="clock-time" id="time-b-white">5:00</span>
+            <span class="clock-drift" id="drift-b-white">Drift: 0ms</span>
+          </div>
+          <div class="clock-box" id="clock-b-black">
+            <span class="clock-label">Black Time</span>
+            <span class="clock-time" id="time-b-black">5:00</span>
+            <span class="clock-drift" id="drift-b-black">Drift: 0ms</span>
+          </div>
+        </div>
+
+        <div class="premove-banner" id="premove-banner-b">
+          <span id="premove-text-b">⚡ PREMOVE QUEUED</span>
+          <button style="padding: 2px 6px; font-size: 10px;" onclick="cancelPremove('b')">Cancel</button>
+        </div>
+
+        <div class="board-wrapper">
+          <div class="cg-wrap">
+            <div id="board-b" style="width: 100%; height: 100%;"></div>
+          </div>
+        </div>
+
+        <div class="move-controls">
+          <div class="quick-moves">
+            <button onclick="playQuick('b','e7','e5')">e5</button>
+            <button onclick="playQuick('b','c7','c5')">c5</button>
+            <button onclick="playQuick('b','g8','f6')">Nf6</button>
+            <button onclick="playQuick('b','b8','c6')">Nc6</button>
+            <button onclick="playQuick('b','d7','d5')">d5</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Telemetry Log -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <div class="telemetry-title">
+            <span>●</span> Live Telemetry & Microsecond Log
+          </div>
+          <span style="font-size: 11px; color: var(--text-muted);" id="telemetry-count">0 frames</span>
+        </div>
+
+        <div class="telemetry-log" id="telemetry-log">
+          <div class="log-entry" style="color: var(--accent-cyan);">
+            [System] Chessground Sandbox initialized. Ready for drag & drop and premoves.
+          </div>
+        </div>
+
+        <div class="stats-bar">
+          <div class="stat-item">
+            <span>Active Turn:</span>
+            <span class="stat-val" id="stat-turn">White (w)</span>
+          </div>
+          <div class="stat-item">
+            <span>Ply Count:</span>
+            <span class="stat-val" id="stat-ply">0</span>
+          </div>
+          <div class="stat-item">
+            <span>Max Clock Drift:</span>
+            <span class="stat-val" id="stat-max-drift">0ms</span>
+          </div>
+          <div class="stat-item">
+            <span>Zero-Latency Premoves:</span>
+            <span class="stat-val" id="stat-premoves-count">0</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ES Module: Chessground + Chess.js + Clock Engine -->
+  <script type="module">
+    import { Chessground } from '/chessground/chessground.min.js';
+    import { Chess } from '/chessjs/chess.js';
+
+    // =========================================================================
+    // PRODUCTION CLIENT CLOCK ENGINE
+    // =========================================================================
+    class ProductionClockEngine {
+      constructor(color, onTick, onFlag) {
+        this.color = color;
+        this.onTick = onTick;
+        this.onFlag = onFlag;
+        this.serverMs = 0;
+        this.localAnchor = performance.now();
+        this.isTicking = false;
+        this.rafId = null;
+
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden && this.isTicking) {
+            this.renderTick();
+          }
+        });
+      }
+
+      syncServerPacket(serverRemainingMs, currentTurn, isGracePeriod, status) {
+        this.serverMs = serverRemainingMs;
+        this.localAnchor = performance.now();
+        this.isTicking = (status === 'active') && !isGracePeriod && (currentTurn === this.color);
+        this.renderTick();
+        if (this.isTicking) {
+          this.startLoop();
+        } else {
+          this.stopLoop();
+        }
+      }
+
+      getLiveMs() {
+        if (!this.isTicking) return this.serverMs;
+        const elapsed = performance.now() - this.localAnchor;
+        return Math.max(0, this.serverMs - elapsed);
+      }
+
+      renderTick() {
+        const liveMs = this.getLiveMs();
+        if (liveMs <= 0 && this.isTicking) {
+          this.isTicking = false;
+          this.stopLoop();
+          if (this.onFlag) this.onFlag(this.color);
+        }
+        if (this.onTick) this.onTick(liveMs);
+      }
+
+      startLoop() {
+        this.stopLoop();
+        const frame = () => {
+          this.renderTick();
+          if (this.isTicking) {
+            this.rafId = requestAnimationFrame(frame);
+          }
+        };
+        this.rafId = requestAnimationFrame(frame);
+      }
+
+      stopLoop() {
+        if (this.rafId) {
+          cancelAnimationFrame(this.rafId);
+          this.rafId = null;
+        }
+      }
+    }
+
+    function formatTime(ms) {
+      if (ms <= 0) return '0:00.0';
+      const totalSec = ms / 1000;
+      const minutes = Math.floor(totalSec / 60);
+      const seconds = Math.floor(totalSec % 60);
+
+      if (ms < 20_000) {
+        const tenths = Math.floor((ms % 1000) / 100);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`;
+      }
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // =========================================================================
+    // SOUND EFFECTS (Web Audio Synthesis)
+    // =========================================================================
+    let audioCtx = null;
+    function playBoardSound(type) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        if (type === 'move') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(260, now);
+          osc.frequency.exponentialRampToValueAtTime(120, now + 0.08);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'capture') {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.1);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        } else if (type === 'premove') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (type === 'check') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.setValueAtTime(659.25, now + 0.06);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          osc.start(now);
+          osc.stop(now + 0.18);
+        }
+      } catch (e) {}
+    }
+
+    // =========================================================================
+    // CHESSGROUND INTEGRATION & STATE
+    // =========================================================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const soloRole = urlParams.get('role');
+    const gameId = urlParams.get('gameId') || 'sandbox-1';
+
+    let maxDriftSeen = 0;
+    let premovesExecutedCount = 0;
+    let currentServerFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    let currentTurn = 'w';
+    let isGraceActive = false;
+    let gameStatus = 'active';
+
+    const ALL_SQUARES = [
+      'a1','b1','c1','d1','e1','f1','g1','h1',
+      'a2','b2','c2','d2','e2','f2','g2','h2',
+      'a3','b3','c3','d3','e3','f3','g3','h3',
+      'a4','b4','c4','d4','e4','f4','g4','h4',
+      'a5','b5','c5','d5','e5','f5','g5','h5',
+      'a6','b6','c6','d6','e6','f6','g6','h6',
+      'a7','b7','c7','d7','e7','f7','g7','h7',
+      'a8','b8','c8','d8','e8','f8','g8','h8'
+    ];
+
+    function toDests(chess) {
+      const dests = new Map();
+      for (const s of ALL_SQUARES) {
+        const ms = chess.moves({ square: s, verbose: true });
+        if (ms.length) {
+          dests.set(s, ms.map(m => m.to));
+        }
+      }
+      return dests;
+    }
+
+    const clients = {
+      w: {
+        socket: null,
+        chess: new Chess(),
+        cg: null,
+        clockWhite: null,
+        clockBlack: null,
+        queuedPremove: null,
+      },
+      b: {
+        socket: null,
+        chess: new Chess(),
+        cg: null,
+        clockWhite: null,
+        clockBlack: null,
+        queuedPremove: null,
+      },
+    };
+
+    function initHarnessClocks(clientColor) {
+      const c = clients[clientColor];
+      c.clockWhite = new ProductionClockEngine(
+        'w',
+        (ms) => {
+          const el = document.getElementById(`time-${clientColor}-white`);
+          const box = document.getElementById(`clock-${clientColor}-white`);
+          if (el) el.textContent = formatTime(ms);
+          if (box) {
+            box.classList.toggle('active-turn', currentTurn === 'w' && gameStatus === 'active');
+            box.classList.toggle('low-time', ms < 10_000 && ms > 0 && currentTurn === 'w');
+          }
+        },
+        () => logTelemetry('flag', `[${clientColor.toUpperCase()}] White flagged (0.00s)!`)
+      );
+
+      c.clockBlack = new ProductionClockEngine(
+        'b',
+        (ms) => {
+          const el = document.getElementById(`time-${clientColor}-black`);
+          const box = document.getElementById(`clock-${clientColor}-black`);
+          if (el) el.textContent = formatTime(ms);
+          if (box) {
+            box.classList.toggle('active-turn', currentTurn === 'b' && gameStatus === 'active');
+            box.classList.toggle('low-time', ms < 10_000 && ms > 0 && currentTurn === 'b');
+          }
+        },
+        () => logTelemetry('flag', `[${clientColor.toUpperCase()}] Black flagged (0.00s)!`)
+      );
+    }
+
+    function initChessground(color) {
+      const el = document.getElementById(`board-${color}`);
+      const c = clients[color];
+      const isMyTurn = (currentTurn === color);
+
+      c.cg = Chessground(el, {
+        fen: currentServerFen,
+        orientation: color === 'w' ? 'white' : 'black',
+        turnColor: currentTurn === 'w' ? 'white' : 'black',
+        coordinates: true,
+        autoCastle: true,
+        movable: {
+          free: false,
+          color: color === 'w' ? 'white' : 'black',
+          dests: isMyTurn ? toDests(c.chess) : new Map(),
+          showDests: true,
+          events: {
+            after: (orig, dest) => {
+              playBoardSound('move');
+              executeLiveMove(color, orig, dest);
+            }
+          }
+        },
+        premovable: {
+          enabled: true,
+          showDests: true,
+          castle: true,
+          events: {
+            set: (orig, dest) => {
+              playBoardSound('premove');
+              executePremove(color, orig, dest);
+            },
+            unset: () => {
+              cancelPremove(color);
+            }
+          }
+        },
+        highlight: {
+          lastMove: true,
+          check: true,
+        },
+        animation: {
+          enabled: true,
+          duration: 180,
+        }
+      });
+    }
+
+    function executeLiveMove(color, orig, dest) {
+      const c = clients[color];
+      let promotion = undefined;
+      const piece = c.chess.get(orig);
+      if (piece && piece.type === 'p') {
+        if ((color === 'w' && dest[1] === '8') || (color === 'b' && dest[1] === '1')) {
+          promotion = 'q';
+        }
+      }
+      c.socket.send(JSON.stringify({ type: 'move', from: orig, to: dest, promotion }));
+      logTelemetry('tx', `[TX ${color.toUpperCase()}] move: ${orig}➔${dest}`);
+    }
+
+    function executePremove(color, orig, dest) {
+      const c = clients[color];
+      let promotion = undefined;
+      const piece = c.chess.get(orig);
+      if (piece && piece.type === 'p') {
+        if ((color === 'w' && dest[1] === '8') || (color === 'b' && dest[1] === '1')) {
+          promotion = 'q';
+        }
+      }
+      c.queuedPremove = { from: orig, to: dest };
+      c.socket.send(JSON.stringify({ type: 'premove', from: orig, to: dest, promotion }));
+      logTelemetry('tx', `[TX ${color.toUpperCase()}] premove: ${orig}➔${dest}`);
+      updatePremoveBanner(color, orig, dest);
+    }
+
+    function updatePremoveBanner(color, from, to) {
+      const banner = document.getElementById(`premove-banner-${color}`);
+      const text = document.getElementById(`premove-text-${color}`);
+      if (banner && text) {
+        banner.classList.add('active');
+        text.textContent = `⚡ PREMOVE QUEUED: ${from} ➔ ${to}`;
+      }
+    }
+
+    function clearPremoveBanner(color) {
+      const banner = document.getElementById(`premove-banner-${color}`);
+      if (banner) banner.classList.remove('active');
+    }
+
+    // Connect WebSocket
+    function connectSocket(color) {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${window.location.host}/game/${gameId}?role=${color}`;
+      const ws = new WebSocket(wsUrl);
+      clients[color].socket = ws;
+
+      const badge = document.getElementById(`badge-${color}`);
+      if (badge) {
+        badge.textContent = 'Connecting...';
+        badge.style.background = '#854d0e';
+        badge.style.color = '#fef08a';
+      }
+
+      ws.onopen = () => {
+        if (badge) {
+          badge.textContent = 'Connected';
+          badge.style.background = 'rgba(16, 185, 129, 0.2)';
+          badge.style.color = '#34d399';
+        }
+        document.getElementById('service-badge').textContent = 'Online';
+        document.getElementById('service-badge').style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        document.getElementById('service-badge').style.color = '#34d399';
+        logTelemetry('rx', `[WS ${color.toUpperCase()}] Connected to ${wsUrl}`);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleServerMessage(color, msg);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      ws.onclose = (e) => {
+        if (badge) {
+          badge.textContent = 'Disconnected';
+          badge.style.background = 'rgba(239, 68, 68, 0.2)';
+          badge.style.color = '#f87171';
+        }
+        logTelemetry('error', `[WS ${color.toUpperCase()}] Disconnected (${e.code})`);
+      };
+
+      ws.onerror = () => {
+        logTelemetry('error', `[WS ${color.toUpperCase()}] WebSocket Error`);
+      };
+    }
+
+    // Handle WebSocket Messages
+    function handleServerMessage(clientColor, msg) {
+      const c = clients[clientColor];
+
+      switch (msg.type) {
+        case 'init': {
+          logTelemetry('rx', `[RX ${clientColor.toUpperCase()}] init: turn=${msg.turn}, W=${msg.whiteMs}ms, B=${msg.blackMs}ms`);
+          currentServerFen = msg.fen;
+          currentTurn = msg.turn;
+          gameStatus = msg.status;
+          isGraceActive = (msg.graceSecsRemaining !== null && msg.graceSecsRemaining > 0);
+
+          c.chess.load(msg.fen);
+          const isMyTurn = (currentTurn === clientColor);
+
+          if (c.cg) {
+            c.cg.set({
+              fen: msg.fen,
+              turnColor: currentTurn === 'w' ? 'white' : 'black',
+              check: c.chess.inCheck(),
+              movable: {
+                color: clientColor === 'w' ? 'white' : 'black',
+                dests: isMyTurn ? toDests(c.chess) : new Map(),
+              },
+              premovable: {
+                enabled: true,
+              }
+            });
+          }
+
+          c.clockWhite.syncServerPacket(msg.whiteMs, currentTurn, isGraceActive, gameStatus);
+          c.clockBlack.syncServerPacket(msg.blackMs, currentTurn, isGraceActive, gameStatus);
+          updateStats(msg.movesCount, currentTurn);
+          break;
+        }
+
+        case 'move': {
+          logTelemetry('rx', `[RX ${clientColor.toUpperCase()}] move: ${msg.san} (${msg.from}➔${msg.to}) isPremove=${msg.isPremove}`);
+          currentServerFen = msg.fen;
+          currentTurn = msg.turn;
+          isGraceActive = false;
+
+          c.chess.load(msg.fen);
+          const isCheck = c.chess.inCheck();
+          if (isCheck) playBoardSound('check');
+          else if (msg.san.includes('x')) playBoardSound('capture');
+          else playBoardSound('move');
+
+          if (msg.isPremove) {
+            premovesExecutedCount++;
+            document.getElementById('stat-premoves-count').textContent = premovesExecutedCount;
+            logTelemetry('premove', `⚡ ZERO-LATENCY PREMOVE PROVEN! 0ms deducted on server!`);
+          }
+
+          const isMyTurn = (currentTurn === clientColor);
+          if (c.cg) {
+            c.cg.set({
+              fen: msg.fen,
+              turnColor: currentTurn === 'w' ? 'white' : 'black',
+              lastMove: [msg.from, msg.to],
+              check: isCheck,
+              movable: {
+                color: clientColor === 'w' ? 'white' : 'black',
+                dests: isMyTurn ? toDests(c.chess) : new Map(),
+              },
+              premovable: {
+                enabled: true,
+              }
+            });
+          }
+
+          if (isMyTurn && c.queuedPremove) {
+            c.queuedPremove = null;
+            clearPremoveBanner(clientColor);
+          }
+
+          measureDrift(clientColor, 'w', c.clockWhite.getLiveMs(), msg.whiteMs);
+          measureDrift(clientColor, 'b', c.clockBlack.getLiveMs(), msg.blackMs);
+
+          c.clockWhite.syncServerPacket(msg.whiteMs, currentTurn, false, 'active');
+          c.clockBlack.syncServerPacket(msg.blackMs, currentTurn, false, 'active');
+          updateStats(msg.movesCount, currentTurn);
+          break;
+        }
+
+        case 'clock_sync': {
+          measureDrift(clientColor, 'w', c.clockWhite.getLiveMs(), msg.whiteMs);
+          measureDrift(clientColor, 'b', c.clockBlack.getLiveMs(), msg.blackMs);
+
+          currentTurn = msg.turn;
+          isGraceActive = (msg.graceSecsRemaining !== null && msg.graceSecsRemaining > 0);
+          c.clockWhite.syncServerPacket(msg.whiteMs, currentTurn, isGraceActive, 'active');
+          c.clockBlack.syncServerPacket(msg.blackMs, currentTurn, isGraceActive, 'active');
+          break;
+        }
+
+        case 'premove_status': {
+          logTelemetry('rx', `[RX ${clientColor.toUpperCase()}] premove_status: queued=${msg.queued}`);
+          if (msg.queued && msg.premove) {
+            c.queuedPremove = msg.premove;
+            updatePremoveBanner(clientColor, msg.premove.from, msg.premove.to);
+            if (c.cg) {
+              c.cg.set({
+                premovable: {
+                  current: [msg.premove.from, msg.premove.to]
+                }
+              });
+            }
+          } else {
+            c.queuedPremove = null;
+            clearPremoveBanner(clientColor);
+            if (c.cg) c.cg.cancelPremove();
+          }
+          break;
+        }
+
+        case 'game_over': {
+          gameStatus = 'completed';
+          c.clockWhite.stopLoop();
+          c.clockBlack.stopLoop();
+          if (c.cg) {
+            c.cg.set({ movable: { color: undefined }, premovable: { enabled: false } });
+          }
+          logTelemetry('flag', `🏆 GAME OVER: ${msg.result} (${msg.reason}) Winner: ${msg.winner}`);
+          alert(`Game Over! ${msg.result} - ${msg.reason}`);
+          break;
+        }
+
+        case 'error': {
+          logTelemetry('error', `[RX ${clientColor.toUpperCase()}] ERROR: ${msg.message}`);
+          if (msg.fen) {
+            currentServerFen = msg.fen;
+            c.chess.load(msg.fen);
+            const isMyTurn = (currentTurn === clientColor);
+            if (c.cg) {
+              c.cg.set({
+                fen: msg.fen,
+                turnColor: currentTurn === 'w' ? 'white' : 'black',
+                movable: {
+                  color: clientColor === 'w' ? 'white' : 'black',
+                  dests: isMyTurn ? toDests(c.chess) : new Map(),
+                },
+                premovable: {
+                  enabled: true,
+                }
+              });
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    function measureDrift(clientColor, clockColor, clientEstimatedMs, serverPacketMs) {
+      const drift = Math.round(Math.abs(clientEstimatedMs - serverPacketMs));
+      const driftEl = document.getElementById(`drift-${clientColor}-${clockColor === 'w' ? 'white' : 'black'}`);
+      if (driftEl) driftEl.textContent = `Drift: ${drift}ms`;
+
+      if (drift > maxDriftSeen) {
+        maxDriftSeen = drift;
+        document.getElementById('stat-max-drift').textContent = `${maxDriftSeen}ms`;
+      }
+    }
+
+    function updateStats(ply, turn) {
+      document.getElementById('stat-ply').textContent = ply;
+      document.getElementById('stat-turn').textContent = turn === 'w' ? 'White (w)' : 'Black (b)';
+    }
+
+    // Expose helpers to window for buttons
+    window.playQuick = (clientColor, from, to) => {
+      const c = clients[clientColor];
+      if (!c.socket || c.socket.readyState !== WebSocket.OPEN) return;
+      const isMyTurn = (currentTurn === clientColor);
+      if (isMyTurn) {
+        executeLiveMove(clientColor, from, to);
+      } else {
+        executePremove(clientColor, from, to);
+        if (c.cg) {
+          c.cg.set({
+            premovable: {
+              current: [from, to]
+            }
+          });
+        }
+      }
+    };
+
+    window.cancelPremove = (clientColor) => {
+      const c = clients[clientColor];
+      if (c.socket && c.socket.readyState === WebSocket.OPEN) {
+        c.socket.send(JSON.stringify({ type: 'cancel_premove' }));
+        logTelemetry('tx', `[TX ${clientColor.toUpperCase()}] cancel_premove`);
+      }
+      clearPremoveBanner(clientColor);
+      if (c.cg) c.cg.cancelPremove();
+    };
+
+    window.sendResign = (clientColor) => {
+      const c = clients[clientColor];
+      if (confirm(`Resign as ${clientColor === 'w' ? 'White' : 'Black'}?`)) {
+        if (c.socket && c.socket.readyState === WebSocket.OPEN) {
+          c.socket.send(JSON.stringify({ type: 'resign' }));
+          logTelemetry('tx', `[TX ${clientColor.toUpperCase()}] resign`);
+        }
+      }
+    };
+
+    window.initGameOnServer = async () => {
+      const gid = document.getElementById('cfg-game-id').value.trim() || 'sandbox-1';
+      const baseMs = parseInt(document.getElementById('cfg-base-ms').value, 10);
+      const incMs = parseInt(document.getElementById('cfg-inc-ms').value, 10);
+      const fen = document.getElementById('cfg-fen').value.trim();
+
+      logTelemetry('tx', `[Init] Calling POST /init-game for game: ${gid}`);
+      try {
+        const res = await fetch('/init-game', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-clock-secret': 'dev-secret-clock-key-123',
+          },
+          body: JSON.stringify({
+            gameId: gid,
+            whitePlayerId: 'white-player',
+            blackPlayerId: 'black-player',
+            timeControl: `${Math.round(baseMs/60000)}+${Math.round(incMs/1000)}`,
+            baseTimeMs: baseMs,
+            incrementMs: incMs,
+            startingFen: fen,
+          }),
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        logTelemetry('rx', `[Init Success] Game ${data.gameId} initialized in Ohio RAM`);
+        reconnectBoth();
+      } catch (err) {
+        logTelemetry('error', `[Init Failed] ${err.message}`);
+        alert(`Failed to initialize game: ${err.message}`);
+      }
+    };
+
+    window.applyPreset = () => {
+      const val = document.getElementById('cfg-preset').value.split(',');
+      document.getElementById('cfg-base-ms').value = val[0];
+      document.getElementById('cfg-inc-ms').value = val[1];
+    };
+
+    window.openTab = (role) => {
+      const url = `/sandbox?role=${role}&gameId=${encodeURIComponent(gameId)}`;
+      window.open(url, '_blank');
+    };
+
+    let telemetryCount = 0;
+    function logTelemetry(type, msg) {
+      telemetryCount++;
+      document.getElementById('telemetry-count').textContent = `${telemetryCount} frames`;
+      const log = document.getElementById('telemetry-log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+
+      const now = new Date();
+      const timeStr = `${now.toTimeString().split(' ')[0]}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+      entry.innerHTML = `<span class="log-time">[${timeStr}]</span> ${escapeHtml(msg)}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    window.clearTelemetry = () => {
+      document.getElementById('telemetry-log').innerHTML = '';
+      telemetryCount = 0;
+      document.getElementById('telemetry-count').textContent = '0 frames';
+    };
+
+    function reconnectBoth() {
+      if (soloRole === 'w') {
+        connectSocket('w');
+      } else if (soloRole === 'b') {
+        connectSocket('b');
+      } else {
+        connectSocket('w');
+        connectSocket('b');
+      }
+    }
+
+    // Initialize
+    initHarnessClocks('w');
+    initHarnessClocks('b');
+    initChessground('w');
+    initChessground('b');
+
+    if (soloRole === 'w') {
+      document.getElementById('card-b').style.display = 'none';
+      document.querySelector('.workspace-grid').style.gridTemplateColumns = '1fr 420px';
+      connectSocket('w');
+    } else if (soloRole === 'b') {
+      document.getElementById('card-w').style.display = 'none';
+      document.querySelector('.workspace-grid').style.gridTemplateColumns = '1fr 420px';
+      connectSocket('b');
+    } else {
+      connectSocket('w');
+      connectSocket('b');
+    }
+  </script>
+</body>
+</html>
